@@ -1,0 +1,946 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>光现象 - 全能深度特训系统</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --correct-color: #27ae60;
+            --wrong-color: #c0392b;
+            --bg-color: #f0f4f8;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+
+        /* 顶部导航 */
+        .header {
+            height: 70px;
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            flex-shrink: 0;
+            z-index: 20;
+        }
+
+        .badge {
+            padding: 8px 20px;
+            border-radius: 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .badge-choice { background-color: var(--accent-color); }
+        .badge-drag { background-color: #e67e22; }
+        .badge-draw { background-color: #8e44ad; }
+
+        .progress-bar {
+            position: absolute;
+            top: 70px;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: #dfe6e9;
+            z-index: 19;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--correct-color);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        /* 主舞台容器 */
+        .stage-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+        }
+
+        /* 1. 刷题视图 */
+        .quiz-view {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center; 
+            padding: 20px;
+            box-sizing: border-box;
+            background: var(--bg-color);
+            transition: transform 0.3s ease;
+            overflow-y: auto;
+        }
+
+        #quiz-content {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-bottom: 100px; /* 底部留白给按钮 */
+        }
+
+        .question-box {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 50px;
+            line-height: 1.5;
+            text-align: left;
+            width: 100%;
+        }
+
+        /* 选项样式 */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            width: 100%;
+        }
+
+        .option-btn {
+            background: #fff;
+            border: 4px solid #bdc3c7;
+            border-radius: 16px;
+            padding: 25px;
+            font-size: 2rem;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 4px 0 #bdc3c7;
+        }
+        .option-btn:active { transform: scale(0.98); box-shadow: none; transform: translateY(4px); }
+        .option-letter { font-weight: 900; color: var(--accent-color); margin-right: 20px; font-size: 2.2rem; }
+        .option-btn.correct { background: var(--correct-color); border-color: var(--correct-color); color: white; box-shadow: 0 4px 0 #1e8449; }
+        .option-btn.correct .option-letter { color: white; }
+        .option-btn.wrong { background: var(--wrong-color); border-color: var(--wrong-color); color: white; box-shadow: 0 4px 0 #922b21; }
+        .option-btn.wrong .option-letter { color: white; }
+
+        /* 填空样式 */
+        .drop-zone {
+            display: inline-block;
+            min-width: 180px;
+            height: 55px;
+            border-bottom: 4px dashed var(--accent-color);
+            vertical-align: bottom;
+            margin: 0 10px;
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 2.2rem;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 8px;
+            transition: all 0.3s;
+            padding: 0 10px;
+        }
+        .drop-zone.filled { border-bottom: 4px solid var(--primary-color); background: rgba(46, 204, 113, 0.2); }
+        
+        .drop-zone.correct { 
+            background: var(--correct-color); 
+            color: white; 
+            border: none; 
+        }
+        
+        .drop-zone.wrong { 
+            background: #fadbd8; 
+            color: #7f8c8d;      
+            border: 2px solid var(--wrong-color); 
+            line-height: 1.2;
+            height: auto;        
+            padding-bottom: 5px;
+        }
+        
+        .correct-ans-highlight {
+            color: var(--wrong-color);
+            font-weight: bold;
+            display: block;
+            margin-top: 5px;
+            font-size: 2rem;
+        }
+
+        .drag-container {
+            margin-top: 60px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            width: 100%;
+            padding: 30px;
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .drag-item {
+            background: var(--primary-color);
+            color: white;
+            padding: 15px 35px;
+            border-radius: 50px;
+            font-size: 1.8rem;
+            cursor: grab;
+            box-shadow: 0 5px 0 #1a252f;
+            user-select: none;
+            touch-action: none;
+            transition: transform 0.1s;
+        }
+        .drag-item:active { cursor: grabbing; transform: scale(1.1); z-index: 100; }
+        .drag-item.locked { opacity: 0.5; pointer-events: none; background: #95a5a6; box-shadow: none; }
+
+        /* 2. 作图视图 */
+        .draw-view {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 100%; 
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+        
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            cursor: crosshair;
+            background: radial-gradient(#dce4eb 10%, transparent 11%) 0 0;
+            background-size: 25px 25px;
+            background-color: #ffffff;
+            overflow: hidden;
+        }
+        
+        canvas { display: block; width: 100%; height: 100%; }
+
+        .draw-instruction {
+            position: absolute;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.98);
+            padding: 15px 50px;
+            border-radius: 60px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            font-size: 2rem;
+            color: var(--primary-color);
+            font-weight: bold;
+            pointer-events: none;
+            border: 3px solid var(--accent-color);
+            transition: all 0.3s;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        /* 按钮组 */
+        .nav-btn {
+            position: fixed;
+            bottom: 40px;
+            color: white;
+            padding: 15px 45px;
+            border-radius: 50px;
+            font-size: 1.8rem;
+            border: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            cursor: pointer;
+            z-index: 50;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        .nav-btn:active { transform: translateY(3px); box-shadow: none; }
+
+        #prev-btn { left: 40px; background-color: #95a5a6; display: none; }
+        #next-btn { right: 40px; background: var(--accent-color); display: none; }
+        #mode-switch-btn { left: 50%; transform: translateX(-50%); background: #e67e22; }
+        #reset-draw-btn { right: 40px; background: #e74c3c; display: none; }
+
+        #result-screen { display: none; text-align: center; margin-top: 150px; width: 100%; }
+        .score-big { font-size: 8rem; color: var(--primary-color); font-weight: bold; margin: 30px 0; }
+
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div id="type-badge" class="badge badge-choice">单项选择题</div>
+    <div style="font-size: 1.6rem; color: #7f8c8d;">
+        <span id="progress-text">进度: <span id="current-num" style="color: #2c3e50; font-weight: bold;">1</span> / 60</span>
+    </div>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+
+<div class="stage-container">
+    <div class="quiz-view" id="quiz-view">
+        <div id="quiz-content">
+            <div id="question-area" class="question-box"></div>
+            <div id="choice-container" class="options-grid"></div>
+            <div id="drag-pool" class="drag-container" style="display:none;"></div>
+        </div>
+        
+        <div id="result-screen">
+            <h1 style="font-size: 5rem; color: #34495e;">特训完成！</h1>
+            <div class="score-big">得分: <span id="final-score">0</span></div>
+            <button class="nav-btn" style="position:relative; right:auto; bottom:auto; left:auto; transform:none; margin-top:50px; background:var(--accent-color)" onclick="location.reload()">重新开始</button>
+        </div>
+    </div>
+
+    <div class="draw-view" id="draw-view">
+        <div id="canvas-container">
+            <canvas id="physicsCanvas"></canvas>
+            <div id="draw-hint" class="draw-instruction">准备生成题目...</div>
+        </div>
+    </div>
+</div>
+
+<button id="prev-btn" class="nav-btn" onclick="prevQuestion()">⬅ 上一题</button>
+<button id="mode-switch-btn" class="nav-btn" onclick="toggleMode()">✏️ 切换作图模式</button>
+<button id="next-btn" class="nav-btn" onclick="nextQuestion()">下一题 ➜</button>
+<button id="reset-draw-btn" class="nav-btn" onclick="initDrawingProblem()">🔄 下一道作图题</button>
+
+<script>
+    // ==========================================
+    // 部分1: 60道刷题数据 (最终修正版)
+    // ==========================================
+    const questions = [
+        // --- 声现象 ---
+        { type: 'choice', q: "1. 老牛的叫声和蚊子的嗡嗡声相比，老牛叫声的响度____，音调____。", options: ["大, 低", "小, 高", "大, 高", "小, 低"], a: 0 },
+        { type: 'drag', q: "2. 音调是由发声体振动的____决定的；响度是由发声体振动的____决定的。", dragOptions: ["频率", "振幅", "音色", "时间"], dragAnswers: ["频率", "振幅"] },
+
+        { type: 'choice', q: "3. 将正在发声的电铃放在玻璃罩内，抽出罩内空气，声音变小。这说明？", options: ["声音传播需要介质", "电铃坏了", "空气阻碍声音传播", "声音被吸收了"], a: 0 },
+        { type: 'drag', q: "4. 声音____在真空中传播；光____在真空中传播。", dragOptions: ["不能", "能", "必须", "很难"], dragAnswers: ["不能", "能"] },
+
+        { type: 'choice', q: "5. 我们能分辨出钢琴和小提琴的声音，主要是依据声音的？", options: ["响度", "音调", "音色", "频率"], a: 2 },
+        { type: 'drag', q: "6. “闻其声知其人”是依据____；“震耳欲聋”形容的是____。", dragOptions: ["音色", "响度", "音调", "声速"], dragAnswers: ["音色", "响度"] },
+
+        { type: 'choice', q: "7. 下列关于声速的说法，正确的是？", options: ["声音在真空中传播最快", "声音在固体中传播比在空气中快", "声音在空气中速度总是340m/s", "声速与介质种类无关"], a: 1 },
+        // Q8 修正：探究音调响度实验
+        { type: 'drag', q: "8. 改变钢尺伸出桌面的长度，是为了探究____与振动快慢的关系；用力拨动钢尺，是为了探究____与振幅的关系。", dragOptions: ["音调", "响度", "音色", "速度"], dragAnswers: ["音调", "响度"] },
+
+        // --- 光现象 ---
+        { type: 'choice', q: "9. 下列现象中，属于光的直线传播的是？", options: ["手影游戏", "水中倒影", "海市蜃楼", "放大镜看字"], a: 0 },
+        { type: 'drag', q: "10. 小孔成像成的是____像；平面镜成像成的是____像。", dragOptions: ["倒立实", "正立虚", "正立实", "倒立虚"], dragAnswers: ["倒立实", "正立虚"] },
+
+        { type: 'choice', q: "11. 电影院的屏幕做成粗糙的白布，是为了发生？", options: ["镜面反射", "漫反射", "折射", "直线传播"], a: 1 },
+        { type: 'drag', q: "12. 黑板反光是因为发生了____反射；我们能从不同角度看到书本是因为发生了____反射。", dragOptions: ["镜面", "漫", "全", "折射"], dragAnswers: ["镜面", "漫"] },
+
+        { type: 'choice', q: "13. 下列现象中，由光的反射形成的是？", options: ["小孔成像", "水中倒影", "日食月食", "立竿见影"], a: 1 },
+        { type: 'drag', q: "14. 水中倒影是光的____现象；皮影戏是光的____现象。", dragOptions: ["反射", "直线传播", "折射", "色散"], dragAnswers: ["反射", "直线传播"] },
+
+        { type: 'choice', q: "15. 身高1.6m的人站在平面镜前1m处，像高____，像到镜面距离____。", options: ["1.6m, 1m", "0.8m, 1m", "1.6m, 2m", "3.2m, 1m"], a: 0 },
+        { type: 'drag', q: "16. 平面镜成像特点：像与物大小____；像与物到镜面距离____。", dragOptions: ["相等", "不等", "垂直", "平行"], dragAnswers: ["相等", "相等"] },
+
+        { type: 'choice', q: "17. 下列成语中，对应现象是光的直线传播的是？", options: ["坐井观天", "镜花水月", "杯弓蛇影", "猴子捞月"], a: 0 },
+        { type: 'drag', q: "18. “一叶障目”是光的____现象；“水中捞月”是光的____现象。", dragOptions: ["直线传播", "反射", "折射", "散射"], dragAnswers: ["直线传播", "反射"] },
+
+        { type: 'choice', q: "19. 调节电视机的音量，是为了改变声音的？", options: ["音调", "响度", "音色", "频率"], a: 1 },
+        
+        // Q20: 声音实验 (乒乓球)
+        { type: 'drag', q: "20. 将悬挂的乒乓球接触正在发声的音叉，球被弹起，说明发声体在____；音叉越响，球弹起越高，说明响度与____有关。", dragOptions: ["振动", "静止", "振幅", "频率"], dragAnswers: ["振动", "振幅"] },
+
+        // --- 物态变化 ---
+        { type: 'choice', q: "21. 冬天口中呼出的“白气”是？", options: ["水蒸气", "小水珠", "二氧化碳", "空气"], a: 1 },
+        { type: 'drag', q: "22. “白气”的形成是____现象；冰冻的衣服变干是____现象。", dragOptions: ["液化", "汽化", "升华", "凝华"], dragAnswers: ["液化", "升华"] },
+
+        { type: 'choice', q: "23. 下列措施中，为了加快蒸发的是？", options: ["把蔬菜放入保鲜袋", "把湿衣服晾在通风向阳处", "给盛有酒精的瓶子盖盖", "把新鲜水果放入冰箱"], a: 1 },
+        { type: 'drag', q: "24. 液体蒸发在____温度下都能发生；蒸发过程需要____热。", dragOptions: ["任何", "特定", "吸", "放"], dragAnswers: ["任何", "吸"] },
+
+        { type: 'choice', q: "25. 水沸腾时，继续加热，水的温度？", options: ["不断上升", "保持不变", "先升后降", "迅速下降"], a: 1 },
+        { type: 'drag', q: "26. 水沸腾时的温度叫____点；沸腾是液体内部和表面同时发生的剧烈____现象。", dragOptions: ["沸", "熔", "汽化", "液化"], dragAnswers: ["沸", "汽化"] },
+
+        { type: 'choice', q: "27. 寒冷的冬天，窗户玻璃上的“冰花”出现在？", options: ["室外一侧", "室内一侧", "两侧都有", "夹层中"], a: 1 },
+        { type: 'drag', q: "28. 霜的形成是____现象；露水的形成是____现象。", dragOptions: ["凝华", "液化", "凝固", "熔化"], dragAnswers: ["凝华", "液化"] },
+
+        { type: 'choice', q: "29. 晶体在熔化过程中？", options: ["吸热，温度升高", "吸热，温度不变", "放热，温度降低", "不吸热，温度不变"], a: 1 },
+        { type: 'drag', q: "30. 海波是____体，有固定的熔点；松香是____体，没有固定的熔点。", dragOptions: ["晶", "非晶", "液", "气"], dragAnswers: ["晶", "非晶"] },
+
+        { type: 'choice', q: "31. 夏天扇扇子感到凉快，是因为？", options: ["扇来了冷风", "降低了空气温度", "加快汗液蒸发吸热", "扇子本身是凉的"], a: 2 },
+        // Q32: 速度计算 (Updated)
+        { type: 'drag', q: "32. 汽车匀速行驶，2s内通过40m，速度是____m/s；若保持该速度行驶10s，通过路程____m。", dragOptions: ["20", "200", "40", "80"], dragAnswers: ["20", "200"] },
+
+        // --- 运动与力 ---
+        { type: 'choice', q: "33. 坐在行驶列车里的乘客，看到路边的树木向后退，他选的参照物是？", options: ["地面", "路边的房屋", "列车", "天空"], a: 2 },
+        { type: 'drag', q: "34. 运动和静止是____的；同步卫星相对于地球是____的。", dragOptions: ["相对", "绝对", "静止", "运动"], dragAnswers: ["相对", "静止"] },
+
+        { type: 'choice', q: "35. 某物体做匀速直线运动，关于 v=s/t，下列说法正确的是？", options: ["v与s成正比", "v与t成反比", "v不随s、t改变", "s与t成反比"], a: 2 },
+        { type: 'drag', q: "36. 匀速直线运动中，速度大小保持____；路程与时间成____比。", dragOptions: ["不变", "改变", "正", "反"], dragAnswers: ["不变", "正"] },
+
+        { type: 'choice', q: "37. 甲乙两车并排同向行驶，甲车乘客看乙车在后退，则？", options: ["甲车比乙车快", "甲车比乙车慢", "甲乙两车同速", "乙车静止"], a: 0 },
+        { type: 'drag', q: "38. 空中加油时，受油机相对于加油机是____的；相对于地面是____的。", dragOptions: ["静止", "运动", "倒退", "静默"], dragAnswers: ["静止", "运动"] },
+
+        { type: 'choice', q: "39. 在s-t图像中，平行于时间轴的直线表示物体？", options: ["匀速运动", "静止", "加速运动", "减速运动"], a: 1 },
+        { type: 'drag', q: "40. s-t图像中斜线表示____运动；v-t图像中平行于时间轴的直线表示____运动。", dragOptions: ["匀速", "变速", "静止", "加速"], dragAnswers: ["匀速", "匀速"] },
+
+        // --- 综合与生活情境 ---
+        { type: 'choice', q: "41. 小明用刻度尺测长度，记录结果为：12.34cm，12.35cm，12.35cm，12.75cm。物体长度应记为？", options: ["12.45cm", "12.35cm", "12.34cm", "12.3475cm"], a: 1 },
+        { type: 'drag', q: "42. 测量结果由数值和____组成；多次测量求平均值是为了减小____。", dragOptions: ["单位", "符号", "误差", "错误"], dragAnswers: ["单位", "误差"] },
+
+        { type: 'choice', q: "43. 关于光的反射，当入射角为0°时，反射角为？", options: ["90°", "0°", "180°", "45°"], a: 1 },
+        // Q44: 探究音调响度实验 (鼓声)
+        { type: 'drag', q: "44. 敲击鼓面，用力越大，鼓面振幅越大，____越大；改变吉他弦的松紧，是为了改变声音的____。", dragOptions: ["响度", "音调", "音色", "频率"], dragAnswers: ["响度", "音调"] },
+
+        // Q45: 探究音调因素 (单选)
+        { type: 'choice', q: "45. 在探究“影响音调高低的因素”实验中，逐渐缩短钢尺伸出桌面的长度，听到声音的音调变高，这是因为？", options: ["钢尺振动变快", "钢尺振动变慢", "钢尺振幅变大", "钢尺振幅变小"], a: 0 },
+        { type: 'drag', q: "46. 平面镜所成的像与物体关于镜面____；物体远离镜面，像的大小____。", dragOptions: ["对称", "垂直", "不变", "变小"], dragAnswers: ["对称", "不变"] },
+
+        { type: 'choice', q: "47. 早上照镜子，当你举起右手刷牙时，镜子里的像举起的是哪只手？", options: ["左手", "右手", "无法确定", "双手"], a: 0 },
+        { type: 'drag', q: "48. 刚拖完地的走廊地板很湿、很亮，能看到窗户倒影，这是____反射；而在粗糙的水泥操场上看不见倒影，发生的是____反射。", dragOptions: ["镜面", "漫", "全", "折射"], dragAnswers: ["镜面", "漫"] },
+
+        { type: 'choice', q: "49. 在暗室里，将小平面镜放在白纸上，用手电筒正对镜子照射，从侧面看去？", options: ["镜子亮，白纸暗", "镜子暗，白纸亮", "一样亮", "一样暗"], a: 1 },
+        { type: 'drag', q: "50. 镜面反射和漫反射都遵守____定律；我们能从各个方向看到不发光的物体是因为____反射。", dragOptions: ["反射", "折射", "漫", "镜面"], dragAnswers: ["反射", "漫"] },
+
+        { type: 'choice', q: "51. 体育课排队集合时，老师要求“向右看齐”。如果你只能看到右边一位同学的侧脸，说明队伍排直了。这利用了？", options: ["光沿直线传播", "光的反射", "光的折射", "平面镜成像"], a: 0 },
+        { type: 'drag', q: "52. 晚上放学回家，当小明远离路灯时，他的影子会变____；这是由于光沿____传播形成的。", dragOptions: ["长", "短", "直线", "曲线"], dragAnswers: ["长", "直线"] },
+
+        // --- 反射实验专题 (Q53-Q56 集中) ---
+        // Q53: 实验-纸板作用
+        { type: 'choice', q: "53. 在探究光的反射规律时，将呈现反射光线的纸板F向前或向后折，是为了验证？", options: ["反射光线、入射光线和法线是否在同一平面内", "反射角是否等于入射角", "光路是否可逆", "反射光线是否存在"], a: 0 },
+        // Q54: 实验-纸板垂直
+        { type: 'drag', q: "54. 探究反射规律时，纸板应与平面镜____放置；为了显示光路，纸板表面应____。", dragOptions: ["垂直", "平行", "粗糙", "光滑"], dragAnswers: ["垂直", "粗糙"] },
+
+        // Q55: 实验-多次测量
+        { type: 'choice', q: "55. 实验中多次改变入射角的大小进行测量，目的是？", options: ["消除误差", "寻找普遍规律", "练习使用量角器", "看得更清楚"], a: 1 },
+        // Q56: 实验-光路可逆
+        { type: 'drag', q: "56. 如果让光线逆着反射光线的方向射向镜面，会发现反射光线沿着入射光线方向射出，这表明在反射现象中，光路是____的；反射角随入射角的增大而____。", dragOptions: ["可逆", "不可逆", "增大", "减小"], dragAnswers: ["可逆", "增大"] },
+
+        // --- 估算与压轴 (Q57-Q60) ---
+        { type: 'choice', q: "57. 下列数据最接近实际的是？", options: ["人正常步行的速度约5m/s", "中学生课桌高约80cm", "洗澡水温度约80℃", "脉搏跳动1次约1min"], a: 1 },
+        { type: 'drag', q: "58. 正常人步行速度约____m/s；人体正常体温约____℃。", dragOptions: ["1.1", "5", "37", "42"], dragAnswers: ["1.1", "37"] },
+
+        { type: 'choice', q: "59. 将正在发声的音叉轻触水面，水花四溅，说明？", options: ["声音能传递能量", "声音能传递信息", "声音传播不需要介质", "声音速度很快"], a: 0 },
+        { type: 'drag', q: "60. 声音是由物体____产生的；超声波碎石利用了声音传递____。", dragOptions: ["振动", "运动", "能量", "信息"], dragAnswers: ["振动", "能量"] }
+    ];
+
+    let currentIndex = 0;
+    let score = 0;
+    let isDrawMode = false;
+    
+    // UI Elements
+    const els = {
+        quizView: document.getElementById('quiz-view'),
+        drawView: document.getElementById('draw-view'),
+        questionBox: document.getElementById('question-area'),
+        choiceContainer: document.getElementById('choice-container'),
+        dragPool: document.getElementById('drag-pool'),
+        nextBtn: document.getElementById('next-btn'),
+        prevBtn: document.getElementById('prev-btn'),
+        typeBadge: document.getElementById('type-badge'),
+        currentNum: document.getElementById('current-num'),
+        progressBar: document.getElementById('progress'),
+        quizContent: document.getElementById('quiz-content'),
+        resultScreen: document.getElementById('result-screen'),
+        finalScore: document.getElementById('final-score'),
+        modeBtn: document.getElementById('mode-switch-btn'),
+        resetDrawBtn: document.getElementById('reset-draw-btn')
+    };
+
+    function loadQuestion() {
+        if(currentIndex >= questions.length) {
+            showResults();
+            return;
+        }
+
+        const q = questions[currentIndex];
+        els.currentNum.innerText = currentIndex + 1;
+        els.progressBar.style.width = `${((currentIndex) / 60) * 100}%`;
+        els.nextBtn.style.display = 'none';
+        
+        if (currentIndex > 0) {
+            els.prevBtn.style.display = 'block';
+        } else {
+            els.prevBtn.style.display = 'none';
+        }
+
+        els.choiceContainer.innerHTML = '';
+        els.dragPool.innerHTML = '';
+        els.choiceContainer.style.display = 'none';
+        els.dragPool.style.display = 'none';
+
+        if (q.type === 'choice') {
+            loadChoiceQuestion(q);
+        } else {
+            loadDragQuestion(q);
+        }
+    }
+
+    function prevQuestion() {
+        if(currentIndex > 0) {
+            currentIndex--;
+            loadQuestion();
+        }
+    }
+
+    function loadChoiceQuestion(q) {
+        els.typeBadge.innerText = "单项选择题";
+        els.typeBadge.className = "badge badge-choice";
+        els.questionBox.innerText = q.q;
+        els.choiceContainer.style.display = 'grid';
+
+        q.options.forEach((opt, index) => {
+            const btn = document.createElement('div');
+            btn.className = 'option-btn';
+            btn.innerHTML = `<span class="option-letter">${['A','B','C','D'][index]}</span> ${opt}`;
+            btn.onclick = () => checkChoice(index, q.a, btn);
+            els.choiceContainer.appendChild(btn);
+        });
+    }
+
+    function checkChoice(idx, correctIdx, btn) {
+        const btns = document.querySelectorAll('.option-btn');
+        btns.forEach(b => b.style.pointerEvents = 'none'); 
+
+        if (idx === correctIdx) {
+            btn.classList.add('correct');
+            score++;
+        } else {
+            btn.classList.add('wrong');
+            btns[correctIdx].classList.add('correct');
+        }
+        els.nextBtn.style.display = 'block';
+    }
+
+    function loadDragQuestion(q) {
+        els.typeBadge.innerText = "拖拽填空题 (可重复使用选项)";
+        els.typeBadge.className = "badge badge-drag";
+        els.dragPool.style.display = 'flex';
+
+        const parts = q.q.split('____');
+        let html = parts[0];
+        for (let i = 1; i < parts.length; i++) {
+            html += `<span class="drop-zone" data-index="${i-1}"></span>` + parts[i];
+        }
+        els.questionBox.innerHTML = html;
+
+        let shuffledOptions = [...q.dragOptions].sort(() => 0.5 - Math.random());
+        shuffledOptions.forEach(opt => {
+            const item = document.createElement('div');
+            item.className = 'drag-item';
+            item.innerText = opt;
+            item.addEventListener('mousedown', handleDragStart);
+            item.addEventListener('touchstart', handleDragStart, {passive: false});
+            els.dragPool.appendChild(item);
+        });
+    }
+
+    function showResults() {
+        els.quizContent.style.display = 'none';
+        els.resultScreen.style.display = 'block';
+        els.finalScore.innerText = Math.round((score / 60) * 100);
+        els.nextBtn.style.display = 'none';
+        els.prevBtn.style.display = 'none';
+    }
+
+    function nextQuestion() {
+        currentIndex++;
+        loadQuestion();
+    }
+
+    // --- 拖拽逻辑 ---
+    let activeItem = null;
+    let cloneItem = null;
+
+    function handleDragStart(e) {
+        if (this.classList.contains('locked')) return;
+        e.preventDefault();
+        activeItem = this;
+        const touch = e.touches ? e.touches[0] : e;
+        
+        cloneItem = activeItem.cloneNode(true);
+        cloneItem.style.position = 'fixed';
+        cloneItem.style.zIndex = '1000';
+        cloneItem.style.opacity = '0.9';
+        cloneItem.style.width = activeItem.offsetWidth + 'px'; 
+        cloneItem.style.pointerEvents = 'none';
+        cloneItem.style.transform = 'scale(1.1)';
+        document.body.appendChild(cloneItem);
+        moveClone(touch.clientX, touch.clientY);
+
+        document.addEventListener('mousemove', handleDragMove);
+        document.addEventListener('touchmove', handleDragMove, {passive: false});
+        document.addEventListener('mouseup', handleDragEnd);
+        document.addEventListener('touchend', handleDragEnd);
+    }
+
+    function moveClone(x, y) {
+        if (!cloneItem) return;
+        cloneItem.style.left = (x - cloneItem.offsetWidth / 2) + 'px';
+        cloneItem.style.top = (y - cloneItem.offsetHeight / 2) + 'px';
+    }
+
+    function handleDragMove(e) {
+        e.preventDefault();
+        const touch = e.touches ? e.touches[0] : e;
+        moveClone(touch.clientX, touch.clientY);
+    }
+
+    function handleDragEnd(e) {
+        const touch = e.changedTouches ? e.changedTouches[0] : e;
+        cloneItem.style.display = 'none';
+        let elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+        cloneItem.style.display = 'block';
+        const dropZone = elemBelow ? elemBelow.closest('.drop-zone') : null;
+
+        if (dropZone) {
+            dropZone.innerText = activeItem.innerText;
+            dropZone.classList.add('filled');
+            checkDragCompletion();
+        }
+
+        if (cloneItem && cloneItem.parentNode) document.body.removeChild(cloneItem);
+        cloneItem = null;
+        activeItem = null;
+        document.removeEventListener('mousemove', handleDragMove);
+        document.removeEventListener('touchmove', handleDragMove);
+        document.removeEventListener('mouseup', handleDragEnd);
+        document.removeEventListener('touchend', handleDragEnd);
+    }
+
+    function checkDragCompletion() {
+        const zones = document.querySelectorAll('.drop-zone');
+        const filledZones = document.querySelectorAll('.drop-zone.filled');
+        
+        if (filledZones.length === zones.length) {
+            const q = questions[currentIndex];
+            let allCorrect = true;
+            zones.forEach((zone, index) => {
+                const userText = zone.innerText;
+                const correctText = q.dragAnswers[index];
+                if (userText === correctText) {
+                    zone.classList.add('correct');
+                } else {
+                    zone.classList.add('wrong');
+                    zone.innerHTML = `<span style="text-decoration:line-through; opacity:0.6">${userText}</span><span class="correct-ans-highlight">${correctText}</span>`;
+                    allCorrect = false;
+                }
+            });
+            if (allCorrect) score++;
+            document.querySelectorAll('.drag-item').forEach(item => item.classList.add('locked'));
+            els.nextBtn.style.display = 'block';
+        }
+    }
+
+    // ==========================================
+    // 部分3: 作图逻辑
+    // ==========================================
+    const canvas = document.getElementById('physicsCanvas');
+    const ctx = canvas.getContext('2d');
+    const hintDiv = document.getElementById('draw-hint');
+    
+    let drawState = 0; 
+    let incidentAngle = 0; 
+    let mirrorRotation = 0; 
+    let normalAngle = 0;    
+    let isIncidentKnown = true;
+    let targetMark = 'i';
+    let originX, originY, rayLen = 400;
+    let isDragging = false;
+    let currentMousePos = {x:0, y:0};
+
+    function toggleMode() {
+        isDrawMode = !isDrawMode;
+        if (isDrawMode) {
+            els.quizView.style.transform = "translateX(-100%)";
+            els.drawView.style.left = "0";
+            els.modeBtn.innerText = "📚 返回刷题模式";
+            els.modeBtn.style.backgroundColor = "#95a5a6";
+            
+            els.typeBadge.innerText = "作图特训模式";
+            els.typeBadge.className = "badge badge-draw";
+            els.resetDrawBtn.style.display = 'block';
+            els.nextBtn.style.display = 'none';
+            els.prevBtn.style.display = 'none';
+            
+            setTimeout(() => { resizeCanvas(); initDrawingProblem(); }, 300);
+        } else {
+            els.quizView.style.transform = "translateX(0)";
+            els.drawView.style.left = "100%";
+            els.modeBtn.innerText = "✏️ 切换作图模式";
+            els.modeBtn.style.backgroundColor = "#e67e22";
+            
+            const q = questions[currentIndex];
+            if(q.type === 'choice') {
+                els.typeBadge.innerText = "单项选择题";
+                els.typeBadge.className = "badge badge-choice";
+            } else {
+                els.typeBadge.innerText = "拖拽填空题";
+                els.typeBadge.className = "badge badge-drag";
+            }
+            els.resetDrawBtn.style.display = 'none';
+            
+            const btns = document.querySelectorAll('.option-btn');
+            const filled = document.querySelectorAll('.drop-zone.filled');
+            const zones = document.querySelectorAll('.drop-zone');
+            
+            if (btns.length > 0 && btns[0].style.pointerEvents === 'none') els.nextBtn.style.display = 'block';
+            if (zones.length > 0 && filled.length === zones.length) els.nextBtn.style.display = 'block';
+            
+            if (currentIndex > 0) els.prevBtn.style.display = 'block';
+        }
+    }
+
+    function resizeCanvas() {
+        const container = document.getElementById('canvas-container');
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        originX = canvas.width / 2;
+        originY = canvas.height * 0.7;
+    }
+
+    function initDrawingProblem() {
+        drawState = 0;
+        let randomTilt = (Math.random() * 50 - 25);
+        mirrorRotation = randomTilt * (Math.PI / 180);
+        normalAngle = mirrorRotation - Math.PI / 2;
+
+        let relativeAngle = (Math.random() * 40 + 30) * (Math.PI / 180);
+        if (Math.random() > 0.5) relativeAngle = -relativeAngle;
+        incidentAngle = relativeAngle;
+
+        isIncidentKnown = Math.random() > 0.5;
+        targetMark = Math.random() > 0.5 ? 'i' : 'r';
+
+        hintDiv.innerText = `第一步：按住 O 点，拖动画出法线 (垂直于镜面)`;
+        hintDiv.style.borderColor = "#3498db";
+        hintDiv.style.color = "#2c3e50";
+        drawScene();
+    }
+
+    function drawMirror() {
+        ctx.save();
+        ctx.translate(originX, originY);
+        ctx.rotate(mirrorRotation);
+        ctx.beginPath();
+        ctx.moveTo(-600, 0);
+        ctx.lineTo(600, 0);
+        ctx.strokeStyle = "#34495e";
+        ctx.lineWidth = 6;
+        ctx.stroke();
+        ctx.beginPath();
+        for (let i = -590; i < 600; i += 20) {
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i - 12, 12);
+        }
+        ctx.strokeStyle = "#95a5a6";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+        ctx.beginPath();
+        ctx.arc(originX, originY, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "#e74c3c";
+        ctx.fill();
+        ctx.fillStyle = "#333";
+        ctx.font = "bold 28px Arial";
+        ctx.fillText("O", originX - 12, originY + 45);
+    }
+
+    function drawRayLine(angle, type, style) {
+        let endX = originX + Math.cos(angle) * rayLen;
+        let endY = originY + Math.sin(angle) * rayLen;
+        ctx.beginPath();
+        if (type === 'in') {
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(originX, originY);
+            drawArrowHead(endX, endY, originX, originY);
+        } else {
+            ctx.moveTo(originX, originY);
+            ctx.lineTo(endX, endY);
+            drawArrowHead(originX, originY, endX, endY);
+        }
+        ctx.strokeStyle = style === 'preview' ? "#2ecc71" : (style === 'answer' ? "#27ae60" : "#e67e22");
+        ctx.lineWidth = 5;
+        ctx.stroke();
+    }
+
+    function drawArrowHead(x1, y1, x2, y2) {
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        const angle = Math.atan2(y2 - y1, x2 - x1);
+        const headlen = 20;
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(midX - headlen * Math.cos(angle - Math.PI / 6), midY - headlen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(midX, midY);
+        ctx.lineTo(midX - headlen * Math.cos(angle + Math.PI / 6), midY - headlen * Math.sin(angle + Math.PI / 6));
+    }
+
+    function drawNormalLine(angle, isPreview) {
+        let endX = originX + Math.cos(angle) * rayLen;
+        let endY = originY + Math.sin(angle) * rayLen;
+        ctx.beginPath();
+        ctx.setLineDash([15, 10]);
+        ctx.moveTo(originX, originY);
+        ctx.lineTo(endX, endY);
+        ctx.strokeStyle = isPreview ? "#95a5a6" : "#2c3e50";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawScene() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawMirror();
+        let staticRayAbsAngle = isIncidentKnown ? (normalAngle + incidentAngle) : (normalAngle - incidentAngle);
+        drawRayLine(staticRayAbsAngle, isIncidentKnown ? 'in' : 'out', 'static');
+        if (drawState >= 1) drawNormalLine(normalAngle, false);
+        if (drawState >= 2) {
+            let answerAbsAngle = isIncidentKnown ? (normalAngle - incidentAngle) : (normalAngle + incidentAngle);
+            drawRayLine(answerAbsAngle, isIncidentKnown ? 'out' : 'in', 'answer');
+        }
+        if (drawState >= 3) drawSpecificAngleMark();
+
+        if (isDragging) {
+            let dx = currentMousePos.x - originX;
+            let dy = currentMousePos.y - originY;
+            let dragAngle = Math.atan2(dy, dx);
+            if (drawState === 0) drawNormalLine(dragAngle, true);
+            else if (drawState === 1) drawRayLine(dragAngle, isIncidentKnown ? 'out' : 'in', 'preview');
+            else if (drawState === 2) {
+                ctx.beginPath();
+                ctx.arc(originX, originY, 80, 0, Math.PI*2);
+                ctx.strokeStyle = "rgba(52, 152, 219, 0.3)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+        }
+    }
+
+    function drawSpecificAngleMark() {
+        const r = 80;
+        let startAngle, endAngle, label;
+        let incAbs = normalAngle + incidentAngle;
+        let refAbs = normalAngle - incidentAngle;
+        if (targetMark === 'i') {
+            label = "i"; startAngle = normalAngle; endAngle = incAbs;
+        } else {
+            label = "r"; startAngle = refAbs; endAngle = normalAngle;
+        }
+        ctx.beginPath();
+        ctx.arc(originX, originY, r, startAngle, endAngle, (endAngle < startAngle));
+        ctx.strokeStyle = "#e74c3c";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        let midAngle = (startAngle + endAngle) / 2;
+        let lx = originX + Math.cos(midAngle) * (r + 30);
+        let ly = originY + Math.sin(midAngle) * (r + 30);
+        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "#e74c3c";
+        ctx.fillText(label, lx - 8, ly + 10);
+    }
+
+    function getMousePos(evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (evt.clientX || evt.touches[0].clientX) - rect.left,
+            y: (evt.clientY || evt.touches[0].clientY) - rect.top
+        };
+    }
+
+    function normalizeAngle(a) {
+        a = a % (2 * Math.PI);
+        if (a < 0) a += 2 * Math.PI;
+        return a;
+    }
+
+    function handleDrawStart(e) {
+        if(drawState === 3) return;
+        isDragging = true;
+        currentMousePos = getMousePos(e);
+        drawScene();
+    }
+
+    function handleDrawMove(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+        currentMousePos = getMousePos(e);
+        drawScene();
+    }
+
+    function handleDrawEnd(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        let dx = currentMousePos.x - originX;
+        let dy = currentMousePos.y - originY;
+        let dragAngle = Math.atan2(dy, dx);
+        const TOLERANCE = 0.25;
+
+        if (drawState === 0) {
+            let diff = Math.abs(normalizeAngle(dragAngle - normalAngle));
+            if (diff > Math.PI) diff = 2*Math.PI - diff;
+            if (diff < TOLERANCE) {
+                drawState = 1;
+                let nextTask = isIncidentKnown ? "反射光线" : "入射光线";
+                hintDiv.innerText = `✅ 法线正确！第二步：按住 O 点，画出${nextTask}`;
+                hintDiv.style.color = "#27ae60";
+            } else {
+                hintDiv.innerText = "❌ 法线应与镜面垂直，请重试";
+                hintDiv.style.color = "#c0392b";
+            }
+        } else if (drawState === 1) {
+            let targetAbsAngle = isIncidentKnown ? (normalAngle - incidentAngle) : (normalAngle + incidentAngle);
+            let diff = Math.abs(normalizeAngle(dragAngle - targetAbsAngle));
+            if (diff > Math.PI) diff = 2*Math.PI - diff;
+            if (diff < TOLERANCE) {
+                drawState = 2;
+                let angleName = targetMark === 'i' ? "入射角 i" : "反射角 r";
+                hintDiv.innerText = `✅ 光路正确！第三步：在正确位置滑动标出 ${angleName}`;
+                hintDiv.style.color = "#27ae60";
+            } else {
+                hintDiv.innerText = "❌ 不符合光的反射定律，请重试";
+                hintDiv.style.color = "#c0392b";
+            }
+        } else if (drawState === 2) {
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 30 && dist < 200) {
+                let angleMid = targetMark === 'i' ? (normalAngle + incidentAngle/2) : (normalAngle - incidentAngle/2);
+                let diff = Math.abs(normalizeAngle(dragAngle - angleMid));
+                if (diff > Math.PI) diff = 2*Math.PI - diff;
+                if (diff < 0.6) {
+                    drawState = 3;
+                    hintDiv.innerText = "🎉 完美作图！(点击右下角按钮再来一题)";
+                    hintDiv.style.color = "#9b59b6";
+                } else {
+                    hintDiv.innerText = `❌ 位置不对，题目要求标出 ${targetMark === 'i' ? "入射角" : "反射角"}`;
+                    hintDiv.style.color = "#c0392b";
+                }
+            }
+        }
+        drawScene();
+    }
+
+    canvas.addEventListener('mousedown', handleDrawStart);
+    canvas.addEventListener('mousemove', handleDrawMove);
+    canvas.addEventListener('mouseup', handleDrawEnd);
+    canvas.addEventListener('touchstart', handleDrawStart, {passive: false});
+    canvas.addEventListener('touchmove', handleDrawMove, {passive: false});
+    canvas.addEventListener('touchend', handleDrawEnd);
+
+    // Initial Start
+    loadQuestion();
+    window.addEventListener('resize', () => { if(isDrawMode) { resizeCanvas(); drawScene(); }});
+</script>
+</body>
+</html>
+```
